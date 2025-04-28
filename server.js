@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 
 // Google Drive setup
 const KEYFILE = credentials.json; // path to service account JSON
-const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID; // your Drive folder ID
+const DRIVE_FOLDER_ID = 1nnt3XLKD6Wdn5VQn1FiNTn0YAeJBeQ3V; // your Drive folder ID
 const auth = new google.auth.GoogleAuth({
   keyFile: KEYFILE,
   scopes: ['https://www.googleapis.com/auth/drive.file']
