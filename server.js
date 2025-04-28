@@ -6,13 +6,14 @@ const fs = require('fs');
 const multer = require('multer');
 const cors = require('cors');
 const { google } = require('googleapis');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Google Drive setup
-const KEYFILE = credentials.json; // path to service account JSON
-const DRIVE_FOLDER_ID = 1nnt3XLKD6Wdn5VQn1FiNTn0YAeJBeQ3V; // your Drive folder ID
+const KEYFILE = path.join(__dirname, 'credentials.json'); // path to service account JSON
+const DRIVE_FOLDER_ID = '1nnt3XLKD6Wdn5VQn1FiNTn0YAeJBeQ3V'; // your Drive folder ID
 const auth = new google.auth.GoogleAuth({
   keyFile: KEYFILE,
   scopes: ['https://www.googleapis.com/auth/drive.file']
@@ -39,7 +40,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 
 const detectionSchema = new mongoose.Schema({
   imagePath: String,    // Google Drive webViewLink
-  timestamp: Date,
+  timestamp: { type: Date, default: Date.now },
   logs: String
 });
 const Detection = mongoose.model('Detection', detectionSchema);
@@ -62,10 +63,11 @@ async function uploadToDrive(localPath, filename) {
   return response.data;
 }
 
+// Upload route
 app.post('/upload', upload.single('image'), async (req, res) => {
   try {
     const { timestamp, logs } = req.body;
-    if (!req.file) return res.status(400).json({ error: 'No image file' });
+    if (!req.file) return res.status(400).json({ error: 'No image file uploaded' });
 
     // Upload to Drive
     const driveFile = await uploadToDrive(req.file.path, req.file.filename);
@@ -80,24 +82,27 @@ app.post('/upload', upload.single('image'), async (req, res) => {
     await detection.save();
 
     // Remove local file
-    fs.unlink(req.file.path, err => { if (err) console.error('Local file deletion error', err); });
+    fs.unlink(req.file.path, err => {
+      if (err) console.error('Error deleting local file:', err);
+    });
 
-    res.status(201).json({ message: 'Detection saved', driveLink });
+    res.status(201).json({ message: 'Detection saved successfully', driveLink });
   } catch (err) {
-    console.error('Error in upload:', err);
-    res.status(500).json({ error: 'Upload failed' });
+    console.error('Error during upload:', err);
+    res.status(500).json({ error: 'Upload failed', details: err.message });
   }
 });
 
+// Fetch recent detections route
 app.get('/detections', async (req, res) => {
   try {
-    const last15 = new Date(Date.now() - 15 * 60 * 1000);
-    const det = await Detection.find({ timestamp: { $gte: last15 } });
-    res.json(det);
+    const last15Minutes = new Date(Date.now() - 15 * 60 * 1000);
+    const detections = await Detection.find({ timestamp: { $gte: last15Minutes } });
+    res.json(detections);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fetch failed' });
+    console.error('Error fetching detections:', err);
+    res.status(500).json({ error: 'Failed to fetch detections', details: err.message });
   }
 });
 
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
