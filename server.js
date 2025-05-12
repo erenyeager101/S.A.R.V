@@ -1,108 +1,46 @@
-require('dotenv').config();
+// server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const multer = require('multer');
 const cors = require('cors');
-const { google } = require('googleapis');
-const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = 3000;
 
-// Google Drive setup
-const KEYFILE = path.join(__dirname, 'credentials.json'); // path to service account JSON
-const DRIVE_FOLDER_ID = '1nnt3XLKD6Wdn5VQn1FiNTn0YAeJBeQ3V'; // your Drive folder ID
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEYFILE,
-  scopes: ['https://www.googleapis.com/auth/drive.file']
-});
-const driveService = google.drive({ version: 'v3', auth });
-
-app.use(bodyParser.json({ limit: '20mb' }));
-app.use(bodyParser.urlencoded({ limit: '20mb', extended: true }));
+// Middleware
 app.use(cors());
-app.use('/uploads', express.static('uploads'));
+app.use(bodyParser.json());
 
-// Multer config for local temp storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+// MongoDB Connection
+const mongoURI = "mongodb+srv://kunalsonne:kunalsonne1847724@cluster0.95mdg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
+
+const db = mongoose.connection;
+db.once('open', () => console.log("Connected to MongoDB"));
+db.on('error', console.error.bind(console, 'MongoDB error:'));
+
+// Schema
+const DataSchema = new mongoose.Schema({
+  temperature: Number,
+  isHuman: Boolean,
+  latitude: Number,
+  longitude: Number,
+  timestamp: { type: Date, default: Date.now }
 });
-const upload = multer({ storage });
 
-// MongoDB setup
-const mongoURI = process.env.MONGODB_URI;
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+const DataModel = mongoose.model("HumanTempData", DataSchema);
 
-const detectionSchema = new mongoose.Schema({
-  imagePath: String,    // Google Drive webViewLink
-  timestamp: { type: Date, default: Date.now },
-  logs: String
-});
-const Detection = mongoose.model('Detection', detectionSchema);
-
-// Upload file to Google Drive folder, return webViewLink
-async function uploadToDrive(localPath, filename) {
-  const fileMetadata = {
-    name: filename,
-    parents: [DRIVE_FOLDER_ID]
-  };
-  const media = {
-    mimeType: 'image/jpeg',
-    body: fs.createReadStream(localPath)
-  };
-  const response = await driveService.files.create({
-    resource: fileMetadata,
-    media: media,
-    fields: 'id, webViewLink, webContentLink'
-  });
-  return response.data;
-}
-
-// Upload route
-app.post('/upload', upload.single('image'), async (req, res) => {
-  try {
-    const { timestamp, logs } = req.body;
-    if (!req.file) return res.status(400).json({ error: 'No image file uploaded' });
-
-    // Upload to Drive
-    const driveFile = await uploadToDrive(req.file.path, req.file.filename);
-    const driveLink = driveFile.webViewLink;
-
-    // Save detection in DB
-    const detection = new Detection({
-      imagePath: driveLink,
-      timestamp: timestamp ? new Date(timestamp) : new Date(),
-      logs: logs || ''
-    });
-    await detection.save();
-
-    // Remove local file
-    fs.unlink(req.file.path, err => {
-      if (err) console.error('Error deleting local file:', err);
-    });
-
-    res.status(201).json({ message: 'Detection saved successfully', driveLink });
+// Endpoint to receive data
+app.post('/data', async (req, res) => {
+  try {         
+    const newData = new DataModel(req.body);
+    await newData.save();
+    res.status(200).json({ message: "Data saved", data: newData });
   } catch (err) {
-    console.error('Error during upload:', err);
-    res.status(500).json({ error: 'Upload failed', details: err.message });
+    res.status(500).json({ message: "Error saving data", error: err });
   }
 });
 
-// Fetch recent detections route
-app.get('/detections', async (req, res) => {
-  try {
-    const last15Minutes = new Date(Date.now() - 15 * 60 * 1000);
-    const detections = await Detection.find({ timestamp: { $gte: last15Minutes } });
-    res.json(detections);
-  } catch (err) {
-    console.error('Error fetching detections:', err);
-    res.status(500).json({ error: 'Failed to fetch detections', details: err.message });
-  }
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
-
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
