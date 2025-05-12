@@ -1,46 +1,49 @@
 // server.js
-const express = require('express');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const express      = require('express');
+const mongoose     = require('mongoose');
+const bodyParser   = require('body-parser');
+const cors         = require('cors');
 
-const app = express();
+const app  = express();
 const port = 3000;
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// MongoDB Connection
-const mongoURI = "mongodb+srv://kunalsonne:kunalsonne1847724@cluster0.95mdg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
+// MongoDB
+const mongoURI = "YOUR_MONGO_URI_HERE";
+mongoose.connect(mongoURI, {
+  useNewUrlParser:    true,
+  useUnifiedTopology: true
+});
+mongoose.connection
+  .on('open',  () => console.log("✔ MongoDB connected"))
+  .on('error', err => console.error("MongoDB error:", err));
 
-const db = mongoose.connection;
-db.once('open', () => console.log("Connected to MongoDB"));
-db.on('error', console.error.bind(console, 'MongoDB error:'));
-
-// Schema
+// Schema & Model
 const DataSchema = new mongoose.Schema({
   temperature: Number,
-  isHuman: Boolean,
-  latitude: Number,
-  longitude: Number,
-  timestamp: { type: Date, default: Date.now }
+  humanProb:   Number,
+  isHuman:     Boolean,
+  latitude:    Number,
+  longitude:   Number,
+  ts:          { type: Date, default: Date.now }
 });
+const DataModel = mongoose.model("HeatGPS", DataSchema);
 
-const DataModel = mongoose.model("HumanTempData", DataSchema);
-
-// Endpoint to receive data
+// Endpoint
 app.post('/data', async (req, res) => {
-  try {         
-    const newData = new DataModel(req.body);
-    await newData.save();
-    res.status(200).json({ message: "Data saved", data: newData });
-  } catch (err) {
-    res.status(500).json({ message: "Error saving data", error: err });
+  try {
+    const doc = new DataModel(req.body);
+    await doc.save();
+    res.json({ status: 'ok', data: doc });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ status: 'error', error: e.toString() });
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+app.listen(port, () =>
+  console.log(`Server listening on http://localhost:${port}`)
+);
