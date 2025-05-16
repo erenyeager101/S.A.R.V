@@ -1,27 +1,30 @@
 // server.js
-const express      = require('express');
-const mongoose     = require('mongoose');
-const bodyParser   = require('body-parser');
-const cors         = require('cors');
+
+const express    = require('express');
+const mongoose   = require('mongoose');
+const bodyParser = require('body-parser');
+const cors       = require('cors');
 
 const app  = express();
 const port = 3000;
 
-// Middleware
+// --- Middleware ---
 app.use(cors());
 app.use(bodyParser.json());
 
-// MongoDB
+// --- MongoDB Connection ---
 const mongoURI = "mongodb+srv://kunalsonne:kunalsonne1847724@cluster0.95mdg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
 mongoose.connect(mongoURI, {
   useNewUrlParser:    true,
   useUnifiedTopology: true
 });
+
 mongoose.connection
   .on('open',  () => console.log("✔ MongoDB connected"))
-  .on('error', err => console.error("MongoDB error:", err));
+  .on('error', err => console.error("MongoDB connection error:", err));
 
-// Schema & Model
+// --- Schema & Model ---
 const DataSchema = new mongoose.Schema({
   temperature: Number,
   humanProb:   Number,
@@ -30,20 +33,33 @@ const DataSchema = new mongoose.Schema({
   longitude:   Number,
   ts:          { type: Date, default: Date.now }
 });
-const DataModel = mongoose.model("HeatGPS", DataSchema);
 
-// Endpoint
+const HeatGPS = mongoose.model('HeatGPS', DataSchema);
+
+// --- Endpoint to receive data ---
 app.post('/data', async (req, res) => {
   try {
-    const doc = new DataModel(req.body);
-    await doc.save();
-    res.json({ status: 'ok', data: doc });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ status: 'error', error: e.toString() });
+    const data = new HeatGPS(req.body);
+    await data.save();
+    console.log("📩 Received Data:", req.body);
+    res.json({ status: "ok", saved: true });
+  } catch (err) {
+    console.error("❌ Error saving data:", err);
+    res.status(500).json({ status: "error", error: err.toString() });
   }
 });
 
-app.listen(port, () =>
-  console.log(`Server listening on http://localhost:${port}`)
-);
+// --- Optional: Get all data ---
+app.get('/data', async (req, res) => {
+  try {
+    const allData = await HeatGPS.find().sort({ ts: -1 }).limit(100);
+    res.json(allData);
+  } catch (err) {
+    res.status(500).json({ error: err.toString() });
+  }
+});
+
+// --- Start Server ---
+app.listen(port, () => {
+  console.log(`🚀 Server running on http://localhost:${port}`);
+});
