@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Robo-Car Control Room</title>
+  <!-- Add Leaflet CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden; /* Only prevent horizontal scroll */
+    }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: radial-gradient(ellipse at 60% 20%, #232b38 60%, #10131a 100%);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      color: #e0e7ef;
+      touch-action: manipulation;
+      overflow-y: auto; /* Allow vertical scrolling */
+    }
+    header {
+      background: linear-gradient(90deg, #0f2027 60%, #2c5364 100%);
+      color: #00ffe7;
+      padding: 0.8rem 1rem;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(0,255,231,0.15);
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      letter-spacing: 1px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 800;
+      text-shadow: 0 2px 16px #00ffe7, 0 2px 8px rgba(0,0,0,0.18);
+      letter-spacing: 2px;
+    }
+    header p {
+      margin: 0;
+      font-size: 1rem;
+      opacity: 0.85;
+      font-weight: 400;
+      color: #b3fff7;
+    }
+    main {
+      flex: 1;
+      display: grid;
+      padding: 1rem;
+      gap: 16px;
+      min-height: 0;
+      grid-auto-rows: min-content;
+    }
+    
+    /* Mobile Landscape Layout - Side by Side */
+    @media (orientation: landscape) {
+      main {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto;
+        grid-template-areas: 
+          "video controls"
+          "video dashboard"
+          "map map";
+      }
+      .video-pane {
+        grid-area: video;
+        min-height: 350px;
+      }
+      .controls-pane {
+        grid-area: controls;
+      }
+      .dashboard-pane {
+        grid-area: dashboard;
+      }
+      .map-pane {
+        grid-area: map;
+        height: 300px;
+      }
+    }
+    
+    /* Mobile Portrait Layout */
+    @media (orientation: portrait) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto;
+        grid-template-areas: 
+          "video"
+          "controls"
+          "dashboard"
+          "map";
+      }
+      .video-pane {
+        height: 40vh;
+        min-height: 250px;
+      }
+      .map-pane {
+        height: 300px;
+        margin-bottom: 1rem;
+      }
+    }
+    
+    .video-pane {
+      background: #181e26;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,255,231,0.15);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      min-height: 150px;
+      border: 2px solid #00ffe7;
+      box-shadow: 0 0 12px #00ffe733;
+      position: relative;
+    }
+    .video-pane img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: all 0.2s;
+    }
+    .video-status {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: #00ffe7;
+      display: flex;
+      align-items: center;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      background-color: #00ffe7;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+    .controls-pane {
+      background: linear-gradient(145deg, #151b23, #1a2430);
+      border-radius: 16px;
+      box-shadow: 0 4px 12px #00ffe722;
+      padding: 1.2rem;
+      border: 2px solid #00ffe7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+    .controls-pane h2 {
+      margin: 0;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #00ffe7;
+      letter-spacing: 1px;
+      text-align: center;
+      text-shadow: 0 2px 8px #00ffe799;
+    }
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(50px, 75px));
+      grid-template-rows: repeat(3, minmax(50px, 75px));
+      gap: 12px;
+      margin-top: 0.6rem;
+    }
+    .controls-grid button {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(0, 255, 231, 0.4);
+      background: linear-gradient(135deg, #00ffe7 70%, #2c5364 100%);
+      color: #232b38;
+      font-size: 1.6rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease-out;
+      outline: none;
+      position: relative;
+      z-index: 1;
+      text-shadow: 0 1px 4px rgba(255, 255, 255, 0.5);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .controls-grid button:active {
+      background: linear-gradient(135deg, #00bfae 80%, #1a2a38 100%);
+      transform: scale(0.92) translateY(2px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(0, 255, 231, 0.4);
+    }
+    .controls-grid .empty {
+      background: transparent;
+      box-shadow: none;
+      cursor: default;
+      pointer-events: none;
+    }
+    .controls-grid #btn-stop {
+      background: linear-gradient(135deg, #ff1744 70%, #c51162 100%);
+      color: #fff;
+      font-size: 1.4rem;
+      font-weight: 700;
+      border: 2px solid #fff;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 23, 68, 0.4);
+      text-shadow: 0 1px 4px rgba(255, 255, 255, 0.5);
+    }
+    .controls-grid #btn-stop:active {
+      background: linear-gradient(135deg, #c51162 80%, #880e4f 100%);
+      transform: scale(0.92) translateY(2px);
+    }
+    
+    .dashboard-pane {
+      background: linear-gradient(145deg, #151b23, #1a2430);
+      border-radius: 16px;
+      box-shadow: 0 0 12px #00ffe733;
+      border: 2px solid #00ffe7;
+      display: flex;
+      flex-direction: column;
+      padding: 1.2rem;
+      min-height: 300px;
+    }
+    .dashboard-pane h2 {
+      margin: 0 0 0.8rem 0;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #00ffe7;
+      letter-spacing: 0.5px;
+      text-align: center;
+      text-shadow: 0 2px 8px #00ffe799;
+    }
+    .metrics-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+    }
+    .metric-card {
+      background: rgba(35, 43, 56, 0.8);
+      border-radius: 12px;
+      border: 1.5px solid #00ffe7;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      margin-bottom: 10px;
+    }
+    .metric-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .metric-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #b3fff7;
+    }
+    .metric-timestamp {
+      font-size: 0.8rem;
+      color: #8a9db8;
+    }
+    .metric-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 0 10px rgba(0, 255, 231, 0.5);
+    }
+    .temperature .metric-value { color: #00ffe7; }
+    .probability .metric-value { color: #ff9500; }
+    .presence .metric-value { color: #ff2d55; }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-detected {
+      background-color: rgba(0, 255, 0, 0.2);
+      color: #1aff1a;
+      border: 1px solid #1aff1a;
+    }
+    .status-none {
+      background-color: rgba(255, 0, 0, 0.2);
+      color: #ff4d4d;
+      border: 1px solid #ff4d4d;
+    }
+    
+    /* New Map Pane Styles */
+    .map-pane {
+      background: linear-gradient(145deg, #151b23, #1a2430);
+      border-radius: 16px;
+      box-shadow: 0 0 12px #00ffe733;
+      border: 2px solid #00ffe7;
+      display: flex;
+      flex-direction: column;
+      padding: 1.2rem;
+    }
+    .map-pane h2 {
+      margin: 0 0 1rem 0;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #00ffe7;
+      letter-spacing: 0.5px;
+      text-align: center;
+      text-shadow: 0 2px 8px #00ffe799;
+    }
+    #map-container {
+      flex: 1;
+      min-height: 250px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #00ffe7;
+      box-shadow: 0 0 10px rgba(0, 255, 231, 0.3);
+    }
+    
+    footer {
+      text-align: center;
+      padding: 1rem 0;
+      background: linear-gradient(90deg, #10131a, #151b23);
+      font-size: 0.9rem;
+      color: #00ffe7;
+      letter-spacing: 0.5px;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      box-shadow: 0 -2px 8px #00ffe744;
+      margin-top: 1rem;
+    }
+    
+    /* Fine-tuned mobile landscape adjustments */
+    @media (orientation: landscape) and (max-height: 700px) {
+      header {
+        padding: 0.5rem;
+      }
+      header h1 {
+        font-size: 1.6rem;
+      }
+      header p {
+        font-size: 0.9rem;
+      }
+      .controls-pane h2, .dashboard-pane h2, .map-pane h2 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+      }
+      .controls-grid {
+        grid-template-columns: repeat(3, minmax(40px, 60px));
+        grid-template-rows: repeat(3, minmax(40px, 60px));
+        gap: 10px;
+      }
+      .controls-grid button {
+        font-size: 1.4rem;
+      }
+      .metric-value {
+        font-size: 1.4rem;
+      }
+      .metric-card {
+        padding: 0.8rem;
+      }
+      footer {
+        padding: 0.6rem 0;
+        font-size: 0.8rem;
+      }
+      .map-pane {
+        height: 250px;
+      }
+    }
+    
+    /* iPhone SE and other very small devices */
+    @media (max-width: 375px) and (max-height: 667px) {
+      .controls-grid {
+        grid-template-columns: repeat(3, minmax(28px, 40px));
+        grid-template-rows: repeat(3, minmax(28px, 40px));
+        gap: 6px;
+      }
+      .controls-grid button {
+        font-size: 1.1rem;
+        border-radius: 10px;
+      }
+      .metric-value {
+        font-size: 1.2rem;
+      }
+      .map-pane {
+        padding: 0.6rem;
+      }
+      .map-pane h2 {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Robo-Car Control Room</h1>
+    <p>Live Feed • Remote Control • Metrics • Location</p>
+  </header>
+  <main>
+    <div class="video-pane">
+      <img src="http://yourIP/video_feed" alt="Live Camera Feed">
+      <div class="video-status">
+        <div class="status-dot"></div>
+        <span>LIVE</span>
+      </div>
+    </div>
+    <div class="controls-pane">
+      <h2>Drive Controls</h2>
+      <div class="controls-grid">
+        <button class="empty"></button>
+        <button id="btn-up">↑</button>
+        <button class="empty"></button>
+        <button id="btn-left">←</button>
+        <button id="btn-stop">■</button>
+        <button id="btn-right">→</button>
+        <button class="empty"></button>
+        <button id="btn-down">↓</button>
+        <button class="empty"></button>
+      </div>
+    </div>
+    <div class="dashboard-pane">
+      <h2>Latest Sensor Readings</h2>
+      <div class="metrics-container">
+        <div class="metric-card temperature">
+          <div class="metric-header">
+            <div class="metric-title">Temperature</div>
+            <div class="metric-timestamp" id="temp-time">--:--</div>
+          </div>
+          <div class="metric-value" id="temp-value">-- °C</div>
+        </div>
+        <div class="metric-card probability">
+          <div class="metric-header">
+            <div class="metric-title">Human Probability</div>
+            <div class="metric-timestamp" id="prob-time">--:--</div>
+          </div>
+          <div class="metric-value" id="prob-value">--%</div>
+        </div>
+        <!-- <div class="metric-card presence">
+          <div class="metric-header">
+            <div class="metric-title">Presence Detection</div>
+            <div class="metric-timestamp" id="presence-time">--:--</div>
+          </div>
+          <div class="metric-value" id="presence-value">
+            <span class="status-badge status-none">NO DETECTION</span>
+          </div>
+        </div> -->
+      </div>
+    </div>
+    <div class="map-pane">
+      <h2>Vehicle Location</h2>
+      <div id="map-container"></div>
+    </div>
+  </main>
+  <!-- <footer>&copy; 2025 Robo-Car Project</footer> -->
+  
+  <!-- Add Leaflet JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  
+  <script>
+    const BLYNK_TOKEN = 'your_blynk_token_here'; // Replace with your Blynk token
+    const btnMap = {
+      'btn-up':    { pin: 0, val: 1 },
+      'btn-down':  { pin: 1, val: 1 },
+      'btn-left':  { pin: 3, val: 1 },
+      'btn-right': { pin: 2, val: 1 },
+      'btn-stop':  { pin: 0, val: 0 }
+    };
+    
+    // Improved touch handling for mobile
+    async function sendBlynk(pin, val) {
+      try {
+        await fetch(`https://blynk.cloud/external/api/update?token=${BLYNK_TOKEN}&v${pin}=${val}`);
+      } catch (e) { 
+        console.error('Blynk error', e); 
+      }
+    }
+    
+    Object.keys(btnMap).forEach(id => {
+      const btn = document.getElementById(id);
+      
+      // Touch support with improved handling
+      btn.addEventListener('touchstart', e => { 
+        e.preventDefault(); // Prevent default behavior like scrolling
+        sendBlynk(btnMap[id].pin, btnMap[id].val); 
+      });
+      
+      // Mouse support for desktop
+      btn.addEventListener('mousedown', () => sendBlynk(btnMap[id].pin, btnMap[id].val));
+      
+      // Stop signal when interaction ends
+      ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt =>
+        btn.addEventListener(evt, (e) => {
+          if (evt.startsWith('touch')) e.preventDefault();
+          if (id !== 'btn-stop') { // Don't reset if it's the stop button itself
+            sendBlynk(btnMap[id].pin, 0);
+          }
+        })
+      );
+    });
+    
+    // Format time nicely
+    function formatTime(timestamp) {
+      const d = new Date(timestamp);
+      return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    }
+    
+    async function updateMetrics() {
+      try {
+        const res = await fetch(`your_api_endpoint_here`);
+        const data = await res.json();
+        
+        // Get the latest data point
+        const latest = data[data.length - 1];
+        
+        if (latest) {
+          // Update Temperature
+          document.getElementById('temp-value').textContent = `${latest.temperature.toFixed(1)} °C`;
+          document.getElementById('temp-time').textContent = formatTime(latest.ts);
+          
+          // Update Probability
+          const probValue = (latest.humanProb * 100).toFixed(0);
+          document.getElementById('prob-value').textContent = `${probValue}%`;
+          document.getElementById('prob-time').textContent = formatTime(latest.ts);
+          
+          // Update Presence
+          const presenceValue = document.getElementById('presence-value');
+          const presenceTime = document.getElementById('presence-time');
+          
+          presenceTime.textContent = formatTime(latest.ts);
+          
+          if (latest.isHuman) {
+            presenceValue.innerHTML = '<span class="status-badge status-detected">DETECTED</span>';
+          } else {
+            presenceValue.innerHTML = '<span class="status-badge status-none">NO DETECTION</span>';
+          }
+        }
+      } catch (e) {
+        console.error('Metrics fetch error', e);
+      }
+    }
+    
+    // Initialize Leaflet map
+    function initMap() {
+      // Fixed coordinates as specified
+      const carLocation = [18.463627, 73.8656288];
+      
+      // Create map
+      const map = L.map('map-container', {
+        center: carLocation,
+        zoom: 15,
+        zoomControl: false,
+        attributionControl: false
+      });
+      
+      // Add dark-themed map tiles
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(map);
+      
+      // Custom car icon
+      const carIcon = L.divIcon({
+        html: `<svg width="24" height="24" viewBox="0 0 24 24" fill="#00ffe7" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18.92,6.01C18.72,5.42,18.16,5,17.5,5h-11c-0.66,0-1.21,0.42-1.42,1.01L3,12v8c0,0.55,0.45,1,1,1h1c0.55,0,1-0.45,1-1v-1h12v1c0,0.55,0.45,1,1,1h1c0.55,0,1-0.45,1-1v-8L18.92,6.01z M6.5,16c-0.83,0-1.5-0.67-1.5-1.5S5.67,13,6.5,13s1.5,0.67,1.5,1.5S7.33,16,6.5,16z M17.5,16c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5s1.5,0.67,1.5,1.5S18.33,16,17.5,16z M5,11l1.5-4.5h11L19,11H5z"/>
+              </svg>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      
+      // Add car marker
+      const marker = L.marker(carLocation, {
+        icon: carIcon,
+        title: 'Robo-Car Location'
+      }).addTo(map);
+      
+      // Add a subtle blue circle around the car to make it more visible
+      L.circle(carLocation, {
+        color: '#00ffe7',
+        fillColor: '#00ffe7',
+        fillOpacity: 0.15,
+        radius: 50,
+        weight: 1
+      }).addTo(map);
+      
+      // Disable map dragging on mobile to prevent interfering with other controls
+      if (window.innerWidth <= 768) {
+        map.dragging.disable();
+      }
+      
+      // Make the map responsive
+      window.addEventListener('resize', () => {
+        map.invalidateSize();
+      });
+      
+      return {map, marker};
+    }
+    
+    // Handle visibility changes to save battery
+    let updateInterval;
+    let mapElements;
+    
+    function startUpdates() {
+      updateMetrics(); // Initial update
+      updateInterval = setInterval(updateMetrics, 3000);
+    }
+    
+    function stopUpdates() {
+      clearInterval(updateInterval);
+    }
+    
+    // Pause updates when tab is hidden to save battery
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopUpdates();
+      } else {
+        startUpdates();
+        
+        // Refresh map if needed when tab becomes visible
+        if (mapElements && mapElements.map) {
+          mapElements.map.invalidateSize();
+        }
+      }
+    });
+    
+    // Initialize components
+    window.onload = () => {
+      startUpdates();
+      mapElements = initMap();
+      
+      // Prevent zooming
+      document.addEventListener('dblclick', function(e) {
+        e.preventDefault();
+      }, { passive: false });
+    };
+  </script>
+</body>
+</html>
