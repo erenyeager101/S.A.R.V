@@ -30,13 +30,13 @@ SARV provides:
 
 ```bash
 SARV/
-â”œâ”€â”€ detection_module/         # Raspberry Pi camera + human detection (OpenCV)
-â”œâ”€â”€ maneuvering_module/       # NodeMCU-based motor control & obstacle avoidance
-â”œâ”€â”€ sensor_module/            # Thermal sensor (MLX90614), GPS (NEO6M), Ultrasonic
-â”œâ”€â”€ software_dashboard/       # Frontend dashboard with live video + sensor data
-â”œâ”€â”€ database/                 # MongoDB integration for data logging
-â”œâ”€â”€ utils/                    # Common scripts, configurations, hardware diagrams
-â”œâ”€â”€ README.md                 # Root README file
+detection_module/         # Raspberry Pi camera + human detection (OpenCV)
+maneuvering_module/       # NodeMCU-based motor control & obstacle avoidance
+sensor_module/            # Thermal sensor (MLX90614), GPS (NEO6M), Ultrasonic
+software_dashboard/       # Frontend dashboard with live video + sensor data
+database/                 # MongoDB integration for data logging
+utils/                    # Common scripts, configurations, hardware diagrams
+README.md                 # Root README file
 ```
 
 ---
