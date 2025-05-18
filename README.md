@@ -57,8 +57,8 @@ SARV/
 ### 2. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/SARV.git
-cd SARV
+git clone https://github.com/erenyeager101/S. A.R.V.git
+cd S.A.R.V
 ```
 
 ### 3. Install Dependencies
@@ -112,19 +112,6 @@ We welcome contributions! Follow these steps:
 
 ---
 
-## Project Team
-
-- **Kunal Sonne** â€“ Blynk control, data pipeline, frontend + MongoDB
-- **Hariom Surwase** â€“ Hardware interfacing, MLX90614 + NodeMCU
-- **Raj Thakur** â€“ Ultrasonic + GPS + chassis setup
-- **Shreeparth Torawane** â€“ Motor driver integration, power supply
-- **Atharva Tuljapurkar** â€“ Frontend dashboard, data visualisation
-
----
-
-## License
-
-This project is licensed under the MIT License.
 
 ---
 
